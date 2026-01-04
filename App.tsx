@@ -25,24 +25,30 @@ const App: React.FC = () => {
   const [gameEnded, setGameEnded] = useState<boolean>(false);
 
   const handleChoice = useCallback((option: GameOption, event: GameEvent) => {
-    // Apply stats changes
+    if (!option || !event) return;
+
+    // 更新数值
     setStats(prev => {
       const newStats = { ...prev };
-      Object.keys(option.statsChange).forEach(key => {
-        const k = key as keyof GameStats;
-        newStats[k] += option.statsChange[k] || 0;
-      });
+      if (option.statsChange) {
+        (Object.keys(option.statsChange) as Array<keyof GameStats>).forEach(key => {
+          const change = option.statsChange[key];
+          if (typeof change === 'number') {
+            newStats[key] += change;
+          }
+        });
+      }
       return newStats;
     });
 
-    // Add to history
+    // 记录历史
     setHistory(prev => [...prev, {
       eventName: event.name,
       choiceName: option.name,
       impact: option.impact
     }]);
 
-    // Check if more events
+    // 判断后续流程
     if (currentEventIndex < EVENTS.length - 1) {
       setIsWaiting(true);
       setTimer(10);
@@ -61,10 +67,14 @@ const App: React.FC = () => {
       setIsWaiting(false);
       setCurrentEventIndex(prev => prev + 1);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [isWaiting, timer]);
 
-  if (gameEnded) {
+  const currentEvent = EVENTS[currentEventIndex];
+
+  if (gameEnded || !currentEvent) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="max-w-2xl w-full bg-stone-100 border-4 border-stone-800 p-8 shadow-2xl relative">
@@ -77,21 +87,21 @@ const App: React.FC = () => {
               南明弘光一朝的结局已定，而大明的香火能否延续，唯有后世史书评说。
             </p>
             <div className="bg-white p-4 border border-stone-300 rounded shadow-inner">
-              <h3 className="font-bold mb-2">最终政局预览：</h3>
+              <h3 className="font-bold mb-2 text-stone-800">最终政局预览：</h3>
               <StatBar stats={stats} />
             </div>
             <h3 className="font-bold text-xl mt-6 border-l-4 border-red-900 pl-2">您的行迹：</h3>
             <div className="space-y-4 overflow-y-auto max-h-60 pr-2">
-              {history.map((h, i) => (
+              {history.length > 0 ? history.map((h, i) => (
                 <div key={i} className="border-b border-stone-200 pb-2">
                   <p className="text-stone-500 text-sm">{h.eventName}</p>
                   <p className="font-bold text-stone-800">{h.choiceName}</p>
                 </div>
-              ))}
+              )) : <p className="text-stone-400">未留下行迹。</p>}
             </div>
             <button 
               onClick={() => window.location.reload()}
-              className="w-full mt-6 bg-stone-800 text-stone-100 py-3 font-bold hover:bg-stone-700 transition"
+              className="w-full mt-6 bg-stone-800 text-stone-100 py-3 font-bold hover:bg-stone-700 transition shadow-lg"
             >
               重回甲申年
             </button>
@@ -127,7 +137,7 @@ const App: React.FC = () => {
             </div>
           ) : (
             <EventPanel 
-              event={EVENTS[currentEventIndex]} 
+              event={currentEvent} 
               onChoice={handleChoice} 
               currentIndex={currentEventIndex}
               total={EVENTS.length}
